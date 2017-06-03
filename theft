@@ -1,0 +1,9 @@
+#!/bin/sh -e
+
+CC=${CC:-cc}
+CFLAGS="-g -fsanitize=address -fsanitize=undefined -fno-sanitize-recover -I deps"
+
+CMD="${CC} ${CFLAGS} -o .theft theft.c deps/theft/theft.c deps/theft/theft_mt.c deps/theft/theft_bloom.c deps/theft/theft_hash.c"
+echo $CMD
+$CMD
+./.theft $@

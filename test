@@ -3,7 +3,7 @@
 CC=${CC:-cc}
 CFLAGS="-g -fsanitize=address -fsanitize=undefined -fno-sanitize-recover -I deps"
 
-SOURCES=$(find . -name '*.c' -or -name '*.h')
-
-${CC} ${CFLAGS} -o .test "deps/munit/munit.c" "test.c"
+CMD="${CC} ${CFLAGS} -o .test munit.c deps/munit/munit.c"
+echo $CMD
+$CMD
 ./.test $@

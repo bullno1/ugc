@@ -319,7 +319,7 @@ static MunitTest tests[] = {
 	{ .test = NULL }
 };
 
-MunitSuite suite = {
+static MunitSuite suite = {
 	.prefix = "",
 	.tests = tests
 };

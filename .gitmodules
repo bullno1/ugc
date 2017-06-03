@@ -1,3 +1,6 @@
 [submodule "munit"]
 	path = deps/munit
 	url = https://github.com/nemequ/munit
+[submodule "deps/theft"]
+	path = deps/theft
+	url = https://github.com/silentbicycle/theft
