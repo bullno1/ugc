@@ -454,7 +454,7 @@ int main()
 	};
 
 	struct theft* t = theft_init(0);
-    theft_run_res result = theft_run(t, &cfg);
+	theft_run_res result = theft_run(t, &cfg);
 	theft_free(t);
 
 	if((uint32_t)(uintptr_t)trial_env.params[3] > 0)
