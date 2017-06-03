@@ -1,7 +1,9 @@
 #!/bin/sh -e
 
 CC=${CC:-cc}
-CFLAGS="-g -fsanitize=address -fsanitize=undefined -fno-sanitize-recover -I ."
+CFLAGS="-g -fsanitize=address -fsanitize=undefined -fno-sanitize-recover -I deps"
 
-${CC} ${CFLAGS} -o .test "munit/munit.c" "test.c"
+SOURCES=$(find . -name '*.c' -or -name '*.h')
+
+${CC} ${CFLAGS} -o .test "deps/munit/munit.c" "test.c"
 ./.test $@
