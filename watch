@@ -1,0 +1,8 @@
+#!/bin/sh
+
+while :
+do
+	inotifywait -e close_write $(find . -name '*.c' -or -name '*.h') 2> /dev/null || exit 1
+	clear
+	./test $@
+done

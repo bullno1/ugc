@@ -1,0 +1,7 @@
+#!/bin/sh -e
+
+CC=${CC:-cc}
+CFLAGS="-g -fsanitize=address -fsanitize=undefined -fno-sanitize-recover -I ."
+
+${CC} ${CFLAGS} -o .test "munit/munit.c" "test.c"
+./.test $@
