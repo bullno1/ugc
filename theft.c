@@ -45,6 +45,11 @@ struct gc_ref_info_s
 	gc_obj_t** ref;
 };
 
+struct trial_env_s
+{
+	void* params[5];
+};
+
 static void*
 alloc_small_number(struct theft* t, theft_seed seed, void* env)
 {
@@ -88,6 +93,20 @@ shrink_number(void* instance, uint32_t tactic, void* env)
 	{
 		case 0: return (void*)(uintptr_t)(number / 2);
 		case 1: return number > 0 ? (void*)(uintptr_t)(number - 1) : THEFT_DEAD_END;
+		default: return THEFT_NO_MORE_TACTICS;
+	}
+}
+
+static void*
+grow_number(void* instance, uint32_t tactic, void* env)
+{
+	(void)env;
+	uint32_t number = (uint32_t)(uintptr_t)instance;
+
+	switch(tactic)
+	{
+		case 0: return (void*)(uintptr_t)(number * 2);
+		case 1: return (void*)(uintptr_t)(number + 1);
 		default: return THEFT_NO_MORE_TACTICS;
 	}
 }
@@ -189,16 +208,18 @@ simulate_gc(
 	void* seed_,
 	void* num_roots_,
 	void* max_objs_,
-	void* num_ops_
+	void* num_ops_,
+	void* num_drops_
 )
 {
 	theft_seed seed = (uint32_t)(uintptr_t)seed_;
 	uint32_t num_roots = (uint32_t)(uintptr_t)num_roots_;
 	uint32_t max_objs = (uint32_t)(uintptr_t)max_objs_;
 	uint32_t num_ops = (uint32_t)(uintptr_t)num_ops_;
+	uint32_t num_drops = (uint32_t)(uintptr_t)num_drops_;
 
 #define LOG(...) do { if(verbose) { printf(__VA_ARGS__); } } while(0)
-	if(num_roots == 0) { return THEFT_TRIAL_SKIP; }
+	if(num_roots == 0 || num_drops > num_ops) { return THEFT_TRIAL_SKIP; }
 
 	struct theft_mt* mt = theft_mt_init(seed);
 	gc_obj_t** root_slots = calloc(num_roots, sizeof(gc_obj_t*));
@@ -217,6 +238,7 @@ simulate_gc(
 	LOG("Max objs: %d\n", max_objs);
 	LOG("Num roots: %d\n", num_roots);
 	LOG("Num ops: %d\n", num_ops);
+	LOG("Num drops: %d\n", num_drops);
 	LOG("-----------------------\n");
 
 	for(size_t i = 0; i < num_ops; ++i)
@@ -231,11 +253,12 @@ start:
 					size_t root_slot = theft_mt_random(mt) % num_roots;
 					size_t num_refs = theft_mt_random(mt) % 10;
 
+					if(num_drops > 0) { --num_drops; continue; }
+
 					gc_obj_t* obj = &objs[num_objs++];
 					obj->num_refs = num_refs;
 					obj->refs = calloc(num_refs, sizeof(gc_obj_t*));
 					ugc_register(&gc, &obj->header);
-
 					root_slots[root_slot] = obj;
 
 					LOG("root[%zu] <- new Obj(%zu) // #%zu\n", root_slot, num_refs, num_objs - 1);
@@ -245,6 +268,8 @@ start:
 				{
 					gc_ref_info_t src_ref_info = pick_ref(mt, num_roots, root_slots);
 					gc_ref_info_t dst_ref_info = pick_ref(mt, num_roots, root_slots);
+
+					if(num_drops > 0) { --num_drops; continue; }
 
 					LOG("root[%d]", src_ref_info.root_index);
 					if(src_ref_info.obj)
@@ -269,6 +294,9 @@ start:
 			case GC_CLEAR_REF:
 				{
 					gc_ref_info_t ref_info = pick_ref(mt, num_roots, root_slots);
+
+					if(num_drops > 0) { --num_drops; continue; }
+
 					*ref_info.ref = NULL;
 
 					LOG("root[%d]", ref_info.root_index);
@@ -281,6 +309,8 @@ start:
 				break;
 			case GC_STEP:
 				{
+					if(num_drops > 0) { --num_drops; continue; }
+
 					const char* gc_state_names[] = { "IDLE", "MARK", "SWEEP" };
 					enum ugc_state_e old_state = gc.state;
 					ugc_step(&gc);
@@ -291,11 +321,11 @@ start:
 			case GC_COLLECT:
 				if(theft_mt_random(mt) % 2 != 0) { goto start; }
 
+				if(num_drops > 0) { --num_drops; continue; }
+
 				ugc_collect(&gc);
 				LOG("gc_collect()\n");
 				break;
-			default:
-				goto start;
 		}
 	}
 
@@ -332,15 +362,19 @@ start:
 }
 
 static theft_trial_res
-check_gc_correctness(void* seed_, void* num_roots_, void* max_objs_, void* num_ops_)
+check_gc_correctness(
+	void* seed, void* num_roots, void* max_objs,
+	void* num_ops, void* num_drops
+)
 {
-	return simulate_gc(false, seed_, num_roots_, max_objs_, num_ops_);
+	return simulate_gc(false, seed, num_roots, max_objs, num_ops, num_drops);
 }
 
 static theft_progress_callback_res
 report_progress(struct theft_trial_info* info, void* env)
 {
-	(void)env;
+	struct trial_env_s* trial_env = env;
+	void** params = trial_env->params;
 	switch(info->status)
 	{
 		case THEFT_TRIAL_PASS:
@@ -348,8 +382,17 @@ report_progress(struct theft_trial_info* info, void* env)
 			fflush(stdout);
 			break;
 		case THEFT_TRIAL_FAIL:
-			printf("\n");
-			simulate_gc(true, info->args[0], info->args[1], info->args[2], info->args[3]);
+			{
+				uint32_t num_ops = (uint32_t)(uintptr_t)info->args[3];
+				uint32_t num_drops = (uint32_t)(uintptr_t)info->args[4];
+				uint32_t num_effective_ops = num_ops - num_drops;
+				uint32_t current_num_effective_ops =
+					(uint32_t)(uintptr_t)params[3] - (uint32_t)(uintptr_t)params[4];
+				if(params[3] == 0 || current_num_effective_ops > num_effective_ops)
+				{
+					memcpy(trial_env->params, info->args, sizeof(void*) * 5);
+				}
+			}
 			break;
 		default:
 			break;
@@ -359,8 +402,6 @@ report_progress(struct theft_trial_info* info, void* env)
 
 int main()
 {
-	struct theft* t = theft_init(0);
-
 	struct theft_type_info shrinking_small_number = {
 		.alloc = alloc_small_number,
 		.hash = hash_number,
@@ -382,11 +423,20 @@ int main()
 		.print = print_number
 	};
 
+	struct theft_type_info growing_number = {
+		.alloc = alloc_small_number,
+		.hash = hash_number,
+		.shrink = grow_number,
+		.print = print_number
+	};
+
 	struct theft_type_info seed = {
 		.alloc = alloc_seed,
 		.hash = hash_number,
 		.print = print_number
 	};
+
+	struct trial_env_s trial_env = { .params = { 0 } };
 
 	struct theft_cfg cfg = {
 		.name = "check_gc_correctness",
@@ -396,13 +446,28 @@ int main()
 			&shrinking_small_number,
 			&shrinking_medium_number,
 			&shrinking_large_number,
+			&growing_number
 		},
 		.trials = 10000,
-		.progress_cb = report_progress
+		.progress_cb = report_progress,
+		.env = &trial_env
 	};
-    theft_run_res result = theft_run(t, &cfg);
 
+	struct theft* t = theft_init(0);
+    theft_run_res result = theft_run(t, &cfg);
 	theft_free(t);
+
+	if((uint32_t)(uintptr_t)trial_env.params[3] > 0)
+	{
+		printf("\n");
+		simulate_gc(true,
+			trial_env.params[0],
+			trial_env.params[1],
+			trial_env.params[2],
+			trial_env.params[3],
+			trial_env.params[4]
+		);
+	}
 
 	return result == THEFT_RUN_PASS ? 0 : 1;
 }
