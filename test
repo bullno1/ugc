@@ -3,7 +3,12 @@
 CC=${CC:-cc}
 CFLAGS="-g -Wall -pedantic -fsanitize=address -fsanitize=undefined -fno-sanitize-recover -I deps"
 
-CMD="${CC} ${CFLAGS} -o .test munit.c deps/munit/munit.c"
+CMD="${CC} ${CFLAGS} -o .munit munit.c deps/munit/munit.c"
 echo $CMD
 $CMD
-./.test $@
+./.munit $@
+
+CMD="${CC} ${CFLAGS} -o .theft theft.c deps/theft/theft.c deps/theft/theft_mt.c deps/theft/theft_bloom.c deps/theft/theft_hash.c"
+echo $CMD
+$CMD
+./.theft $@
