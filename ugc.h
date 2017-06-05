@@ -45,8 +45,8 @@ struct ugc_header_s
  */
 struct ugc_s
 {
-	ugc_header_t set1, set2, set3;
-	ugc_header_t *whites, *blacks, *grays;
+	ugc_header_t set1, set2;
+	ugc_header_t *from, *to, *iterator;
 	ugc_visit_fn_t scan_fn, release_fn;
 
 	/// Arbitrary userdata, not used by the library.
@@ -242,19 +242,20 @@ ugc_unlink(ugc_header_t* element)
 	ugc_set_next(prev, next);
 }
 
-static ugc_header_t*
-ugc_pop(ugc_header_t* list)
+static void
+ugc_make_gray(ugc_t* gc, ugc_header_t* obj)
 {
-	if(list->prev != list)
+	if(obj != gc->iterator)
 	{
-		ugc_header_t* obj = list->prev;
 		ugc_unlink(obj);
-		return obj;
+		ugc_push(gc->to, obj);
 	}
 	else
 	{
-		return NULL;
+		gc->iterator = ugc_prev(gc->iterator);
 	}
+
+	ugc_set_color(obj, UGC_GRAY);
 }
 
 static void
@@ -269,22 +270,21 @@ ugc_init(ugc_t* gc, ugc_visit_fn_t scan_fn, ugc_visit_fn_t release_fn)
 {
 	ugc_clear(&gc->set1);
 	ugc_clear(&gc->set2);
-	ugc_clear(&gc->set3);
 
 	gc->state = UGC_IDLE;
 	gc->scan_fn = scan_fn;
 	gc->release_fn = release_fn;
 	gc->white = 0;
-	gc->whites = &gc->set1;
-	gc->blacks = &gc->set2;
-	gc->grays = &gc->set3;
+	gc->from = &gc->set1;
+	gc->to = &gc->set2;
+	gc->iterator = gc->to;
 	gc->userdata = NULL;
 }
 
 void
 ugc_register(ugc_t* gc, ugc_header_t* obj)
 {
-	ugc_push(gc->whites, obj);
+	ugc_push(gc->from, obj);
 	ugc_set_color(obj, gc->white);
 }
 
@@ -298,9 +298,7 @@ ugc_add_ref(ugc_t* gc, ugc_header_t* parent, ugc_header_t* child)
 
 	if(parent_color == black && child_color == white)
 	{
-		ugc_unlink(parent);
-		ugc_push(gc->grays, parent);
-		ugc_set_color(parent, UGC_GRAY);
+		ugc_make_gray(gc, parent);
 	}
 }
 
@@ -311,9 +309,7 @@ ugc_visit(ugc_t* gc, ugc_header_t* obj)
 
 	if(ugc_color(obj) == gc->white)
 	{
-		ugc_unlink(obj);
-		ugc_push(gc->grays, obj);
-		ugc_set_color(obj, UGC_GRAY);
+		ugc_make_gray(gc, obj);
 	}
 }
 
@@ -321,6 +317,8 @@ void
 ugc_step(ugc_t* gc)
 {
 	ugc_header_t* obj;
+	ugc_header_t* to = gc->to;
+
 	switch((enum ugc_state_e)gc->state)
 	{
 		case UGC_IDLE:
@@ -328,38 +326,45 @@ ugc_step(ugc_t* gc)
 			gc->state = UGC_MARK;
 			break;
 		case UGC_MARK:
-			if((obj = ugc_pop(gc->grays)))
 			{
-				ugc_push(gc->blacks, obj);
-				ugc_set_color(obj, !gc->white);
-				gc->scan_fn(gc, obj);
-			}
-			else
-			{
-				gc->scan_fn(gc, NULL);
-				if(gc->grays->prev == gc->grays)
-				{
-					// Since we can get interrupted during the sweep phase,
-					// move all whites to gray and make ita temporary sweep
-					// queue, move all blacks to whites to prepare for the next
-					// cycle.
-					ugc_header_t* tmp = gc->grays;
-					gc->grays = gc->whites;
-					gc->white = !gc->white;
-					gc->whites = gc->blacks;
-					gc->blacks = tmp;
+				obj = ugc_next(gc->iterator);
+				unsigned char white = gc->white;
 
-					gc->state = UGC_SWEEP;
+				if(obj != to)
+				{
+					gc->iterator = obj;
+					ugc_set_color(obj, !white);
+					gc->scan_fn(gc, obj);
+				}
+				else
+				{
+					gc->scan_fn(gc, NULL);
+					obj = ugc_next(gc->iterator);
+					if(obj == to)
+					{
+						// Since we can get interrupted during the sweep phase,
+						// swap "from" and "to" set, flip white color before
+						// starting the sweep phase.
+						ugc_header_t* from = gc->from;
+						gc->from = to;
+						gc->to = from;
+						gc->white = !white;
+						gc->iterator = ugc_next(from);
+						gc->state = UGC_SWEEP;
+					}
 				}
 			}
 			break;
 		case UGC_SWEEP:
-			if((obj = ugc_pop(gc->grays))) // Gray has become the sweep queue
+			obj = gc->iterator;
+			if(obj != to)
 			{
+				gc->iterator = ugc_next(obj);
 				gc->release_fn(gc, obj);
 			}
 			else
 			{
+				ugc_clear(to);
 				gc->state = UGC_IDLE;
 			}
 			break;
