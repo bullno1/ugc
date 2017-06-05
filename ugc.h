@@ -349,7 +349,7 @@ ugc_step(ugc_t* gc)
 						gc->from = to;
 						gc->to = from;
 						gc->white = !white;
-						gc->iterator = ugc_next(from);
+						gc->iterator = from->next;
 						gc->state = UGC_SWEEP;
 					}
 				}
