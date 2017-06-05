@@ -33,7 +33,7 @@ struct ugc_header_s
 {
 	ugc_header_t* next;
 	ugc_header_t* prev;
-#ifndef UGC_USE_TAGGED_POINTER
+#if !UGC_USE_TAGGED_POINTER
 	unsigned color: 2;
 #endif
 };
@@ -138,7 +138,7 @@ ugc_visit(ugc_t* gc, ugc_header_t* obj);
 
 #define UGC_GRAY 2
 
-#ifdef UGC_USE_TAGGED_POINTER
+#if UGC_USE_TAGGED_POINTER
 
 #define UGC_PTR(ptr) ((uintptr_t)ptr & (~0x03))
 #define UGC_TAG(ptr) ((uintptr_t)ptr & 0x03)

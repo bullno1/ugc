@@ -1,7 +1,7 @@
 #!/bin/sh -e
 
 CC=${CC:-cc}
-CFLAGS="-g -Wall -pedantic -fsanitize=address -fsanitize=undefined -fno-sanitize-recover -I deps"
+CFLAGS="${CFLAGS} -g -Wall -pedantic -fsanitize=address -fsanitize=undefined -fno-sanitize-recover -I deps"
 
 CMD="${CC} ${CFLAGS} -o .munit munit.c deps/munit/munit.c"
 echo $CMD

@@ -7,7 +7,6 @@
 #define UGC_IMPLEMENTATION
 #endif
 
-#define UGC_USE_TAGGED_POINTER 0
 #include "ugc.h"
 
 typedef struct gc_obj_s gc_obj_t;
