@@ -305,8 +305,6 @@ ugc_add_ref(ugc_t* gc, ugc_header_t* parent, ugc_header_t* child)
 void
 ugc_visit(ugc_t* gc, ugc_header_t* obj)
 {
-	if(gc->state == UGC_SWEEP) { return; }
-
 	if(ugc_color(obj) == gc->white)
 	{
 		ugc_make_gray(gc, obj);
