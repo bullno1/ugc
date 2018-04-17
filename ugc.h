@@ -74,6 +74,14 @@ struct ugc_s
 UGC_DECL void
 ugc_init(ugc_t* gc, ugc_visit_fn_t scan_fn, ugc_visit_fn_t release_fn);
 
+/**
+ * @brief Release all allocated objects.
+ *
+ * This is faster than clearing the root and forcing a full collection.
+ */
+UGC_DECL void
+ugc_release_all(ugc_t* gc);
+
 /// Register a new object to be managed by the GC.
 UGC_DECL void
 ugc_register(ugc_t* gc, ugc_header_t* obj);
@@ -265,6 +273,19 @@ ugc_clear(ugc_header_t* list)
 	list->prev = list;
 }
 
+static void
+ugc_release_set(ugc_t* gc, ugc_header_t* set)
+{
+	for(ugc_header_t* itr = ugc_next(set); itr != set;)
+	{
+		ugc_header_t* next = ugc_next(itr);
+
+		gc->release_fn(gc, itr);
+
+		itr = next;
+	}
+}
+
 void
 ugc_init(ugc_t* gc, ugc_visit_fn_t scan_fn, ugc_visit_fn_t release_fn)
 {
@@ -286,6 +307,13 @@ ugc_register(ugc_t* gc, ugc_header_t* obj)
 {
 	ugc_push(gc->from, obj);
 	ugc_set_color(obj, gc->white);
+}
+
+void
+ugc_release_all(ugc_t* gc)
+{
+	ugc_release_set(gc, gc->from);
+	ugc_release_set(gc, gc->to);
 }
 
 void

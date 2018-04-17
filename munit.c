@@ -284,6 +284,33 @@ interupt_sweep(const MunitParameter params[], void* fixture_)
 	return MUNIT_OK;
 }
 
+static MunitResult
+release_all(const MunitParameter params[], void* fixture_)
+{
+	(void)params;
+	fixture_t* fixture = fixture_;
+	ugc_t* gc = fixture->gc;
+
+	gc_obj_t a, b, c;
+
+	alloc(gc, &a);
+	alloc(gc, &b);
+	alloc(gc, &c);
+	a.ref = &b;
+
+	fixture->root = &a;
+
+	for(int i = 0; i < 3; ++i) { ugc_step(gc); }
+
+	ugc_release_all(gc);
+
+	munit_assert_true(!a.live);
+	munit_assert_true(!b.live);
+	munit_assert_true(!c.live);
+
+	return MUNIT_OK;
+}
+
 static MunitTest tests[] = {
 	{
 		.name = "/basic",
@@ -312,6 +339,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/interupt_sweep",
 		.test = interupt_sweep,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/release_all",
+		.test = release_all,
 		.setup = setup,
 		.tear_down = teardown
 	},
