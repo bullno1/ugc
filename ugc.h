@@ -253,16 +253,11 @@ ugc_unlink(ugc_header_t* element)
 static void
 ugc_make_gray(ugc_t* gc, ugc_header_t* obj)
 {
-	if(obj != gc->iterator)
-	{
-		ugc_unlink(obj);
-		ugc_push(gc->to, obj);
-	}
-	else
-	{
-		gc->iterator = ugc_prev(gc->iterator);
-	}
+	// Move iterator back before moving obj
+	if(obj == gc->iterator) { gc->iterator = ugc_prev(obj); }
 
+	ugc_unlink(obj);
+	ugc_push(gc->to, obj);
 	ugc_set_color(obj, UGC_GRAY);
 }
 
