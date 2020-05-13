@@ -330,12 +330,10 @@ ugc_write_barrier(
 	ugc_header_t* child
 )
 {
-	unsigned char parent_color = ugc_color(parent);
-	unsigned char child_color = ugc_color(child);
 	unsigned char white = gc->white;
 	unsigned char black = !gc->white;
 
-	if(parent_color == black && child_color == white)
+	if(ugc_color(parent) == black && ugc_color(child) == white)
 	{
 		switch(direction)
 		{
