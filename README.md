@@ -117,7 +117,17 @@ ugc_write_barrier(gc, direction, src, dst);
 ```
 
 There are two types of write barriers: "forward" and "backward".
-For more information about barriers, refer to: http://wiki.luajit.org/New-Garbage-Collector#gc-algorithms_tri-color-incremental-mark-sweep
+
+[LuaJIT wiki](http://wiki.luajit.org/New-Garbage-Collector#gc-algorithms_tri-color-incremental-mark-sweep) states the following about "backward" barrier:
+
+> This is moving the barrier "back", because the object has to be reprocessed later on.
+> This is beneficial for container objects, because they usually receive several stores in succession.
+> This avoids a barrier for the next objects that are stored into it (which are likely white, too).
+
+And "forward" barrier:
+
+> This moves the barrier "forward", because it implicitly drives the GC forward.
+> This works best for objects that only receive isolated stores.
 
 In the above language example, stores to the stack/local variables do not require a write barrier but stores to global variables do.
 
