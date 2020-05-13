@@ -92,6 +92,17 @@ ugc_release_all(ugc_t* gc);
 UGC_DECL void
 ugc_register(ugc_t* gc, ugc_header_t* obj);
 
+/**
+ * @brief Execute a write barrier.
+ *
+ * Whenever an object stores a reference to another object, this function MUST
+ * be called to ensure that the GC works correctly.
+ *
+ * Root objects (stack, globals) are treated differently so there is no need to
+ * call this function when a store to them occurs.
+ *
+ * @remarks Both objects MUST NOT be NULL.
+ */
 UGC_DECL void
 ugc_write_barrier(
 	ugc_t* gc,

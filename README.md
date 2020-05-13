@@ -113,10 +113,12 @@ ugc_register(gc, new_object);
 Whenever an object receives a reference to another (i.e: `src.field = dst`), μgc must be informed:
 
 ```
-ugc_add_ref(gc, src, dst);
+ugc_write_barrier(gc, direction, src, dst);
 ```
 
-This is known as a write barrier and is required for the incremental GC to work correctly.
+There are two types of write barriers: "forward" and "backward".
+For more information about barriers, refer to: http://wiki.luajit.org/New-Garbage-Collector#gc-algorithms_tri-color-incremental-mark-sweep
+
 In the above language example, stores to the stack/local variables do not require a write barrier but stores to global variables do.
 
 ### Controlling garbage collection
