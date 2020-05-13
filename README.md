@@ -92,7 +92,7 @@ scan_gc_obj(ugc_t* gc, ugc_header_t* header)
 
 The second parameter of `ugc_visit` must not be NULL and must point to a `ugc_header_t`.
 
-`free_fn` will be called when μgc has determined that a language is garbage.
+`free_fn` will be called when μgc has determined that a language's object is garbage.
 It should release an object's resources:
 
 ```c
