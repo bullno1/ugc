@@ -90,7 +90,15 @@ set_ref(ugc_t* gc, gc_obj_t* src, gc_obj_t* dst)
 {
 	munit_logf(MUNIT_LOG_INFO, "Store %p <- %p", (void*)src, (void*)dst);
 	src->ref = dst;
-	if(dst) { ugc_add_ref(gc, &src->header, &dst->header); }
+	if(dst)
+	{
+		ugc_write_barrier(
+			gc,
+			UGC_BARRIER_BACKWARD,
+			&src->header,
+			&dst->header
+		);
+	}
 }
 
 static MunitResult

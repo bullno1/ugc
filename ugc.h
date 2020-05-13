@@ -28,6 +28,12 @@ enum ugc_state_e
 	UGC_SWEEP
 };
 
+enum ugc_barrier_direction_e
+{
+	UGC_BARRIER_FORWARD,
+	UGC_BARRIER_BACKWARD,
+};
+
 /// Header for a managed object. All fields MUST NOT be accessed.
 struct ugc_header_s
 {
@@ -86,19 +92,13 @@ ugc_release_all(ugc_t* gc);
 UGC_DECL void
 ugc_register(ugc_t* gc, ugc_header_t* obj);
 
-/**
- * @brief Register a new reference from one object to another.
- *
- * Whenever an object stores a reference to another object, this function MUST
- * be called to ensure that the GC works correctly.
- *
- * Root objects (stack, globals) are treated differently so there is no need to
- * call this function when a store to them occurs.
- *
- * @remarks Both objects MUST NOT be NULL.
- */
 UGC_DECL void
-ugc_add_ref(ugc_t* gc, ugc_header_t* source, ugc_header_t* target);
+ugc_write_barrier(
+	ugc_t* gc,
+	enum ugc_barrier_direction_e direction,
+	ugc_header_t* parent,
+	ugc_header_t* child
+);
 
 /**
  * @brief Make the GC perform one unit of work.
@@ -237,7 +237,7 @@ ugc_push(ugc_header_t* list, ugc_header_t* element)
 	ugc_set_next(element, list);
 	ugc_set_prev(element, list->prev);
 	ugc_set_next(list->prev, element);
-	list->prev = element;
+	ugc_set_prev(list, element);
 }
 
 static void
@@ -312,7 +312,12 @@ ugc_release_all(ugc_t* gc)
 }
 
 void
-ugc_add_ref(ugc_t* gc, ugc_header_t* parent, ugc_header_t* child)
+ugc_write_barrier(
+	ugc_t* gc,
+	enum ugc_barrier_direction_e direction,
+	ugc_header_t* parent,
+	ugc_header_t* child
+)
 {
 	unsigned char parent_color = ugc_color(parent);
 	unsigned char child_color = ugc_color(child);
@@ -321,7 +326,15 @@ ugc_add_ref(ugc_t* gc, ugc_header_t* parent, ugc_header_t* child)
 
 	if(parent_color == black && child_color == white)
 	{
-		ugc_make_gray(gc, parent);
+		switch(direction)
+		{
+			case UGC_BARRIER_FORWARD:
+				ugc_make_gray(gc, child);
+				break;
+			case UGC_BARRIER_BACKWARD:
+				ugc_make_gray(gc, parent);
+				break;
+		}
 	}
 }
 

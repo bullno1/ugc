@@ -13,7 +13,8 @@ typedef struct gc_ref_info_s gc_ref_info_t;
 enum gc_op_type_e
 {
 	GC_ALLOC,
-	GC_SET_REF,
+	GC_SET_REF_BACKWARD,
+	GC_SET_REF_FORWARD,
 	GC_CLEAR_REF,
 	GC_STEP,
 	GC_COLLECT,
@@ -264,10 +265,12 @@ start:
 					LOG("root[%zu] <- new Obj(%zu) // #%zu\n", root_slot, num_refs, num_objs - 1);
 				}
 				break;
-			case GC_SET_REF:
+			case GC_SET_REF_BACKWARD:
+			case GC_SET_REF_FORWARD:
 				{
 					gc_ref_info_t src_ref_info = pick_ref(mt, num_roots, root_slots);
 					gc_ref_info_t dst_ref_info = pick_ref(mt, num_roots, root_slots);
+					enum gc_op_type_e op = theft_mt_random(mt) % GC_COUNT;
 
 					if(num_drops > 0) { --num_drops; continue; }
 
@@ -282,12 +285,28 @@ start:
 					{
 						LOG("[%d]", dst_ref_info.obj_ref_index);
 					}
+					LOG(" // ");
+					if(op == GC_SET_REF_FORWARD)
+					{
+						LOG("UGC_BARRIER_FORWARD");
+					}
+					else
+					{
+						LOG("UGC_BARRIER_BACKWARD");
+					}
+
 					LOG("\n");
 
 					*src_ref_info.ref = *dst_ref_info.ref;
+
 					if(src_ref_info.obj && *dst_ref_info.ref != NULL)
 					{
-						ugc_add_ref(&gc, &src_ref_info.obj->header, &(*dst_ref_info.ref)->header);
+						ugc_write_barrier(
+							&gc,
+							op == GC_SET_REF_FORWARD ? UGC_BARRIER_FORWARD : UGC_BARRIER_BACKWARD,
+							&src_ref_info.obj->header,
+							&(*dst_ref_info.ref)->header
+						);
 					}
 				}
 				break;
@@ -448,7 +467,7 @@ int main()
 			&shrinking_large_number,
 			&growing_number
 		},
-		.trials = 10000,
+		.trials = 100000,
 		.progress_cb = report_progress,
 		.env = &trial_env
 	};
