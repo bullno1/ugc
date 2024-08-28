@@ -162,9 +162,9 @@ ugc_visit(ugc_t* gc, ugc_header_t* obj);
 #define UGC_PTR(ptr) ((uintptr_t)ptr & (~0x03))
 #define UGC_TAG(ptr) ((uintptr_t)ptr & 0x03)
 #define UGC_SET_PTR(ptr, val) \
-	do { ptr = (void*)((uintptr_t)val | UGC_TAG(ptr)); } while(0)
+	do { ptr = (ugc_header_t*)((uintptr_t)val | UGC_TAG(ptr)); } while(0)
 #define UGC_SET_TAG(ptr, val) \
-	do { ptr = (void*)(UGC_PTR(ptr) | (uintptr_t)val); } while(0)
+	do { ptr = (ugc_header_t*)(UGC_PTR(ptr) | (uintptr_t)val); } while(0)
 
 static inline void
 ugc_set_next(ugc_header_t* obj, ugc_header_t* value)
